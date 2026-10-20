@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PQC readiness: crypto inventory and risk scorer</title>
+<style>
+:root{--bg:#f4f7f8;--card:#fff;--ink:#14212b;--mut:#5b6b77;--line:#d5dee3;--acc:#1f6f8b;--s1:#7fb3c6;--s2:#e0a458;--z:#b3261e;--crit:#b3261e;--high:#c76a12;--med:#a58a00;--low:#4b7f6a;--ok:#6b7b85;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f171d;--card:#17232b;--ink:#e6eef2;--mut:#9fb0ba;--line:#2a3a44;--acc:#6cc0dc;--s1:#3e7a90;--s2:#c48a3a;--z:#ff8a80;--crit:#ff8a80;--high:#f0a055;--med:#d8bf4a;--low:#7fc4a6;--ok:#8fa0aa;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f171d;--card:#17232b;--ink:#e6eef2;--mut:#9fb0ba;--line:#2a3a44;--acc:#6cc0dc;--s1:#3e7a90;--s2:#c48a3a;--z:#ff8a80;--crit:#ff8a80;--high:#f0a055;--med:#d8bf4a;--low:#7fc4a6;--ok:#8fa0aa;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.6rem;line-height:1.2;margin:0 0 6px;letter-spacing:-.01em}
+h2{font-size:1.1rem;margin:28px 0 8px}
+p{margin:0 0 10px;max-width:68ch}
+.mut{color:var(--mut);font-size:.92rem}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0}
+.horizon{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+input,select,button,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 8px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button{cursor:pointer;background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button{color:#0f171d}}
+:root[data-theme="dark"] button{color:#0f171d}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--line);font-weight:500}
+.sum{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}
+.sum div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center;border-top-width:4px}
+.sum b{display:block;font-size:1.5rem;line-height:1.1}
+.sum span{font-size:.8rem;color:var(--mut)}
+.asset{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:10px;padding:12px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+label{display:flex;flex-direction:column;font-size:.8rem;color:var(--mut);gap:3px}
+.top{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.top input{flex:1;font-weight:600}
+.badge{font-weight:700;font-size:.85rem;white-space:nowrap}
+.bar{position:relative;height:16px;background:var(--bg);border:1px solid var(--line);border-radius:4px;margin:12px 0 4px;overflow:visible}
+.bar i{position:absolute;top:0;bottom:0;display:block}
+.bar .zline{position:absolute;top:-5px;bottom:-5px;width:3px;background:var(--z);border-radius:2px}
+.note{font-size:.85rem;color:var(--mut)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--mut)}
+.legend s{display:inline-block;width:12px;height:12px;vertical-align:-1px;margin-right:4px;text-decoration:none;border-radius:2px}
+ol.pri{padding-left:20px;margin:0}
+ol.pri li{margin:6px 0}
+textarea{width:100%;height:150px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+@media (max-width:520px){.sum{grid-template-columns:repeat(3,1fr)}}
+footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);font-size:.9rem;color:var(--mut)}
+footer a{color:var(--acc);font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1>PQC readiness: crypto inventory and risk scorer</h1>
+<p>List where your organisation uses cryptography, then see which items to migrate first. Each asset is scored on how long its data must stay secret, how long migration will take, and how soon a quantum computer could break it.</p>
+
+<div class="panel">
+<p><b>The core test (Mosca’s inequality):</b> if <i>data shelf life</i> + <i>migration time</i> is longer than the <i>years until a quantum threat</i>, that asset is already late.</p>
+<div class="horizon"><label>Years until a quantum threat (your assumption)<input id="z" type="number" min="1" max="30" value="10" style="width:90px"></label>
+<span class="note">Nobody knows this number. Try 8, 10 and 15 and see what changes.</span></div>
+</div>
+
+<div class="sum" id="sum"></div>
+
+<h2>Your assets</h2>
+<div class="row"><button id="add">Add asset</button><button class="ghost" id="reset">Clear all</button></div>
+<div class="legend"><span><s style="background:var(--s1)"></s>Data shelf life</span><span><s style="background:var(--s2)"></s>Migration time</span><span><s style="background:var(--z)"></s>Quantum threat year</span></div>
+<div id="list"></div>
+
+<h2>Migration order</h2>
+<ol class="pri" id="pri"></ol>
+
+<h2>Export</h2>
+<p class="mut">Select all and copy this into a spreadsheet or your CBOM tool.</p>
+<textarea id="csv" readonly aria-label="CSV export"></textarea>
+
+<h2>How the score works</h2>
+<p class="mut">This is a simple heuristic, not a standard. Quantum-vulnerable algorithms score 20 points to start. Add up to 40 for how far shelf life plus migration time overshoots your threat year, 15 for key exchange and encryption (harvest-now risk) or 5 to 10 for signatures (10 if hardware-bound), up to 15 for exposure, and up to 10 for how hard the asset is to replace. 70+ is critical, 50+ high, 30+ medium. AES-256, SHA-256 and the new ML-KEM, ML-DSA and SLH-DSA schemes score as no quantum risk. Adjust the weights to your own context.</p>
+<footer><p>Built by <b>Subodeep Ray</b>, Cloud and AI Security Architect. <a href="https://www.linkedin.com/in/subodeepr" target="_blank" rel="noopener">Connect on LinkedIn</a></p><p>The scoring is a personal heuristic, not an industry standard. Entries stay in your own browser and are never sent anywhere.</p></footer>
+</main>
+<script>
+var ALGS=[["RSA-2048","v"],["RSA-3072 or 4096","v"],["ECC P-256","v"],["ECC P-384","v"],["X25519","v"],["Diffie-Hellman","v"],["ECDSA","v"],["Ed25519","v"],["AES-128","w"],["AES-256","s"],["ChaCha20","s"],["SHA-256 or higher","s"],["ML-KEM / ML-DSA / SLH-DSA","s"],["Hybrid (X25519 + ML-KEM)","s"]];
+var PURP=["Key exchange or encryption","Signature or authentication","Bulk data encryption","Hashing"];
+var CATS=["TLS / HTTPS","VPN","SSH","PKI / certificates","Code signing","HSM / key vault","IoT / firmware","Database or disk","Third-party SaaS","Other"];
+var EXPO=["Internet-facing","Internal only","Offline device"];
+var REPL=["Config change","Needs vendor update","Hardware-bound"];
+var rows=[],KEY="pqc-cbom-v1";
+function sample(){return [
+{n:"Public website TLS",c:0,a:2,p:0,x:3,y:1,e:0,r:0},
+{n:"Firmware signing key",c:6,a:0,p:1,x:15,y:6,e:2,r:2},
+{n:"Archived patient records",c:7,a:9,p:2,x:25,y:2,e:1,r:0}];}
+function load(){try{var s=localStorage.getItem(KEY);if(s)return JSON.parse(s)}catch(e){}return sample()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(rows))}catch(e){}}
+function Z(){var v=parseFloat(document.getElementById("z").value);return isNaN(v)?10:Math.max(1,v)}
+function score(r){var f=ALGS[r.a][1];if(f==="s")return{s:0,t:"No quantum risk",k:"ok"};
+if(f==="w"){var w=r.x>=10?20:5;return{s:w,t:"Watch",k:"low",note:"Not broken, but prefer AES-256 for long-lived data."}}
+var m=r.x+r.y-Z(),s=20+Math.max(0,Math.min(10,m))*4;
+s+=r.p===0?15:(r.p===1?(r.r===2?10:5):8);
+s+=[15,7,3][r.e]+[0,5,10][r.r];
+s=Math.round(Math.min(100,s));
+var k=s>=70?"crit":s>=50?"high":s>=30?"med":"low";
+var t={crit:"Critical",high:"High",med:"Medium",low:"Low"}[k];
+var note=m>0?"Late by about "+Math.round(m)+" yr: "+r.x+" + "+r.y+" exceeds "+Z()+".":"Inside your window by about "+Math.round(-m)+" yr.";
+return{s:s,t:t,k:k,note:note}}
+function sel(arr,v,f){return arr.map(function(o,i){var t=Array.isArray(o)?o[0]:o;return'<option value="'+i+'"'+(i===v?" selected":"")+">"+t+"</option>"}).join("")}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;")}
+function render(){var h="";rows.forEach(function(r,i){var q=score(r),sc=Math.max(30,Math.ceil(Math.max(r.x+r.y,Z())/5)*5+5);
+h+='<div class="asset" style="border-left-color:var(--'+q.k+')" data-i="'+i+'"><div class="top"><input data-f="n" value="'+esc(r.n)+'" aria-label="Asset name"><span class="badge" style="color:var(--'+q.k+')">'+q.t+(q.s?" · "+q.s:"")+'</span><button class="ghost" data-del="'+i+'" aria-label="Remove asset">Remove</button></div>'
++'<div class="grid"><label>Where used<select data-f="c">'+sel(CATS,r.c)+'</select></label><label>Algorithm<select data-f="a">'+sel(ALGS,r.a)+'</select></label><label>Purpose<select data-f="p">'+sel(PURP,r.p)+'</select></label>'
++'<label>Data shelf life (years)<input data-f="x" type="number" min="0" max="60" value="'+r.x+'"></label><label>Migration time (years)<input data-f="y" type="number" min="0" max="30" value="'+r.y+'"></label>'
++'<label>Exposure<select data-f="e">'+sel(EXPO,r.e)+'</select></label><label>Replacement<select data-f="r">'+sel(REPL,r.r)+'</select></label></div>'
++'<div class="bar" role="img" aria-label="Shelf life '+r.x+' years, migration '+r.y+' years, threat at year '+Z()+'"><i style="left:0;width:'+(r.x/sc*100)+'%;background:var(--s1)"></i><i style="left:'+(r.x/sc*100)+'%;width:'+(r.y/sc*100)+'%;background:var(--s2)"></i><span class="zline" style="left:'+(Z()/sc*100)+'%"></span></div>'
++'<div class="note">'+(q.note||"")+'</div></div>'});
+document.getElementById("list").innerHTML=h||'<p class="mut">No assets yet. Add one to start your inventory.</p>';summary()}
+function summary(){var c={crit:0,high:0,med:0,low:0,ok:0};rows.forEach(function(r){c[score(r).k]++});
+var L=[["crit","Critical"],["high","High"],["med","Medium"],["low","Low or watch"],["ok","No PQ risk"]];
+document.getElementById("sum").innerHTML=L.map(function(l){return'<div style="border-top-color:var(--'+l[0]+')"><b>'+c[l[0]]+"</b><span>"+l[1]+"</span></div>"}).join("");
+var o=rows.map(function(r){return{r:r,q:score(r)}}).filter(function(z){return z.q.s>0}).sort(function(a,b){return b.q.s-a.q.s});
+document.getElementById("pri").innerHTML=o.length?o.map(function(z){return"<li><b>"+esc(z.r.n)+"</b> ("+ALGS[z.r.a][0]+"): "+z.q.t+", score "+z.q.s+"</li>"}).join(""):'<li class="mut">Nothing to migrate yet.</li>';
+var csv="Asset,Where used,Algorithm,Purpose,Shelf life (yr),Migration (yr),Exposure,Replacement,Score,Tier\n"+rows.map(function(r){var q=score(r);return[r.n,CATS[r.c],ALGS[r.a][0],PURP[r.p],r.x,r.y,EXPO[r.e],REPL[r.r],q.s,q.t].map(function(v){return'"'+String(v).replace(/"/g,'""')+'"'}).join(",")}).join("\n");
+document.getElementById("csv").value=csv;save()}
+document.getElementById("list").addEventListener("change",function(e){var el=e.target,card=el.closest(".asset");if(!card||!el.dataset.f)return;var r=rows[+card.dataset.i],f=el.dataset.f;r[f]=f==="n"?el.value:(parseFloat(el.value)||0);if(f==="n"){summary()}else render()});
+document.getElementById("list").addEventListener("click",function(e){var d=e.target.dataset.del;if(d!==undefined){rows.splice(+d,1);render()}});
+document.getElementById("add").onclick=function(){rows.push({n:"New asset",c:0,a:0,p:0,x:5,y:2,e:0,r:0});render()};
+document.getElementById("reset").onclick=function(){rows=[];render()};
+document.getElementById("z").addEventListener("input",render);
+rows=load();render();
+</script>
+</body>
+</html>
